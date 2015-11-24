@@ -87,6 +87,12 @@ public class RxLocationProvider implements LocationProvider, GoogleApiClient.Con
         }
     }
 
+    public void enableSetting(Context context, Logger logger) {
+        this.logger = logger;
+        this.context = context;
+
+    }
+
     private LocationRequest createRequest(LocationParams params, boolean singleUpdate) {
         LocationRequest request = LocationRequest.create()
                 .setFastestInterval(params.getInterval())
@@ -345,9 +351,9 @@ public class RxLocationProvider implements LocationProvider, GoogleApiClient.Con
 
     public static class ProviderWrapper {
         public LocationStatus locationStatus;
-        public LocationProvider locationProvider;
+        public RxLocationProvider locationProvider;
 
-        public ProviderWrapper(LocationStatus locationStatus, LocationProvider locationProvider) {
+        public ProviderWrapper(LocationStatus locationStatus, RxLocationProvider locationProvider) {
             this.locationStatus = locationStatus;
             this.locationProvider = locationProvider;
         }

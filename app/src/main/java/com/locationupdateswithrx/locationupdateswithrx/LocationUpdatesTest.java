@@ -1,5 +1,6 @@
 package com.locationupdateswithrx.locationupdateswithrx;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Location;
@@ -20,14 +21,17 @@ import rx.Subscriber;
 import rx.Subscription;
 import rx.functions.Action1;
 import rx.functions.Func1;
+import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
 public class LocationUpdatesTest extends AppCompatActivity {
 
     private Observable<Location> locationObservable;
-    LocationGooglePlayServicesProvider locationGooglePlayServicesProvider;
+    RxLocationProvider locationGooglePlayServicesProvider;
 
     private CompositeSubscription compositeSubscription = new CompositeSubscription();
+
+    private PublishSubject<Boolean> publishSubject = PublishSubject.create();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,7 +41,45 @@ public class LocationUpdatesTest extends AppCompatActivity {
 
         //Need to set custom LocationParams for our use . Currently it receives location updates every 500ms. with distance of 0 .
 
-        RxFactory.enableLocation(this).subscribe(new Subscriber<RxLocationProvider.ProviderWrapper>() {
+        RxFactory.enableLocation(this).flatMap(new Func1<RxLocationProvider.ProviderWrapper, Observable<?>>() {
+            @Override
+            public Observable<?> call(RxLocationProvider.ProviderWrapper providerWrapper) {
+                if (providerWrapper.locationStatus == RxLocationProvider.LocationStatus.ENABLED) {
+                    return ObservableFactory.from(SmartLocation.with(LocationUpdatesTest.this)
+                            .location(locationGooglePlayServicesProvider).config(LocationParams.NAVIGATION));
+                } else {
+                    return publishSubject;
+                }
+            }
+        }).flatMap(new Func1<Object, Observable<?>>() {
+            @Override
+            public Observable<?> call(Object o) {
+                if (o instanceof Boolean) {
+                    if(((Boolean) o).booleanValue() == true) {
+                        return ObservableFactory.from(SmartLocation.with(LocationUpdatesTest.this)
+                                .location(new LocationGooglePlayServicesProvider()).config(LocationParams.NAVIGATION));
+                    }
+                }
+                return null;
+            }
+        }).subscribe(new Subscriber<Object>() {
+            @Override
+            public void onCompleted() {
+
+            }
+
+            @Override
+            public void onError(Throwable e) {
+
+            }
+
+            @Override
+            public void onNext(Object o) {
+                System.out.print(o);
+            }
+        });
+
+        /*RxFactory.enableLocation(this).subscribe(new Subscriber<RxLocationProvider.ProviderWrapper>() {
             @Override
             public void onCompleted() {
 
@@ -51,8 +93,9 @@ public class LocationUpdatesTest extends AppCompatActivity {
             @Override
             public void onNext(RxLocationProvider.ProviderWrapper providerWrapper) {
                 System.out.print(providerWrapper.locationStatus + " - Values");
+                locationGooglePlayServicesProvider = providerWrapper.locationProvider;
             }
-        });
+        });*/
     }
 
 
@@ -126,6 +169,12 @@ public class LocationUpdatesTest extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == RxLocationProvider.REQUEST_CHECK_SETTINGS && resultCode == Activity.RESULT_OK) {
+            publishSubject.onNext(true);
+        } else if (requestCode == RxLocationProvider.REQUEST_CHECK_SETTINGS && resultCode == Activity.RESULT_CANCELED) {
+            publishSubject.onNext(false);
+        }
+
 //        locationGooglePlayServicesProvider.onActivityResult(requestCode, resultCode, data);
         super.onActivityResult(requestCode, resultCode, data);
     }
