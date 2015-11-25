@@ -33,14 +33,16 @@ public class LocationUpdatesTest extends AppCompatActivity {
     private CompositeSubscription compositeSubscription = new CompositeSubscription();
 
     private PublishSubject<Boolean> publishSubject = PublishSubject.create();
+    private TextView mLat;
+    private TextView mLong;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_location_updates_test);
 
-        final TextView mLat = (TextView) findViewById(R.id.latitude);
-        final TextView mLong = (TextView) findViewById(R.id.longitude);
+        mLat = (TextView) findViewById(R.id.latitude);
+        mLong = (TextView) findViewById(R.id.longitude);
 
         //Need to set custom LocationParams for our use . Currently it receives location updates every 500ms. with distance of 0 .
 
@@ -63,40 +65,53 @@ public class LocationUpdatesTest extends AppCompatActivity {
                 .flatMap(new Func1<Boolean, Observable<Location>>() {
                     @Override
                     public Observable<Location> call(Boolean aBoolean) {
-                            return ObservableFactory.from(SmartLocation.with(LocationUpdatesTest.this)
-                                    .location(new LocationGooglePlayServicesProvider()).config(LocationParams.LAZY));
+                        return ObservableFactory.from(SmartLocation.with(LocationUpdatesTest.this)
+                                .location(new LocationGooglePlayServicesProvider()).config(LocationParams.LAZY))
+                                .doOnNext(new Action1<Location>() {
+                                    @Override
+                                    public void call(Location location) {
+                                        Log.d("Location", "Location 1.");
+                                    }
+                                })
+                                .first()
+                                .timeout(100, TimeUnit.MILLISECONDS)
+                                .onErrorResumeNext(new Func1<Throwable, Observable<? extends Location>>() {
+                                    @Override
+                                    public Observable<? extends Location> call(Throwable throwable) {
+                                        Log.d("Location", "Timeout, fetching again.");
+                                        return ObservableFactory.from(SmartLocation.with(LocationUpdatesTest.this)
+                                                .location(new LocationGooglePlayServicesProvider()).config(LocationParams.NAVIGATION))
+                                                .first()
+                                                .doOnNext(new Action1<Location>() {
+                                                    @Override
+                                                    public void call(Location location) {
+                                                        Log.d("Location", "Location 2.");
 
+                                                    }
+                                                });
+                                    }
+                                });
                     }
                 })
-//                .first()
-//                .timeout(10, TimeUnit.SECONDS)
-//                .onErrorResumeNext(new Func1<Throwable, Observable<? extends Location>>() {
-//                    @Override
-//                    public Observable<? extends Location> call(Throwable throwable) {
-//                        Log.d("Location","Timeout, fetching again.");
-//                        return ObservableFactory.from(SmartLocation.with(LocationUpdatesTest.this)
-//                                .location(new LocationGooglePlayServicesProvider()).config(LocationParams.NAVIGATION));
-//                    }
-//                })
                 .subscribe(new Subscriber<Location>() {
-            @Override
-            public void onCompleted() {
+                    @Override
+                    public void onCompleted() {
 
-            }
+                    }
 
-            @Override
-            public void onError(Throwable e) {
+                    @Override
+                    public void onError(Throwable e) {
 
-            }
+                    }
 
-            @Override
-            public void onNext(Location location) {
-                Log.d("Location","Location fixed.");
+                    @Override
+                    public void onNext(Location location) {
+                        Log.d("Location", "Location fixed.");
 
-                mLat.setText(Double.toString(location.getLatitude()));
-                mLong.setText(Double.toString(location.getLongitude()));
-            }
-        });
+                        mLat.setText(Double.toString(location.getLatitude()));
+                        mLong.setText(Double.toString(location.getLongitude()));
+                    }
+                });
 
         /*RxFactory.enableLocation(this).subscribe(new Subscriber<RxLocationProvider.ProviderWrapper>() {
             @Override
@@ -191,6 +206,8 @@ public class LocationUpdatesTest extends AppCompatActivity {
             publishSubject.onNext(true);
         } else if (requestCode == RxLocationProvider.REQUEST_CHECK_SETTINGS && resultCode == Activity.RESULT_CANCELED) {
             publishSubject.onNext(false);
+            mLat.setText("Select Manually/Enable Location");
+            mLong.setText("Select Manually/Enable Location");
         }
 
 //        locationGooglePlayServicesProvider.onActivityResult(requestCode, resultCode, data);

@@ -59,6 +59,7 @@ public class RxLocationProvider implements LocationProvider, GoogleApiClient.Con
     public RxLocationProvider(Subscriber<? super RxLocationProvider.ProviderWrapper> subscriber) {
         this((GooglePlayServicesListener) null);
         this.subscriber = subscriber;
+        locationRequest = createRequest(LocationParams.LAZY, false);
     }
 
     public RxLocationProvider(GooglePlayServicesListener playServicesListener) {
